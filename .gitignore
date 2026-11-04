@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+packages/
+
+azurite_workspace/
+__blobstorage__/
+__queuestorage__/
+__azurite_db_*.json
