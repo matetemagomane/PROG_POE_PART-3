@@ -1,158 +1,237 @@
 using Microsoft.AspNetCore.Mvc;
-using RaceDay.Web.Filters;
-using RaceDay.Web.Models;
-using RaceDay.Web.Services;
+using Microsoft.EntityFrameworkCore;
+using RaceDay.API.Data;
+using RaceDay.API.DTOs;
+using RaceDay.API.Helpers;
+using RaceDay.API.Models;
+using RaceDay.API.Services;
 
-namespace RaceDay.Web.Controllers
+namespace RaceDay.API.Controllers
 {
-    public class EventsController : Controller
+    /// <summary>Events. Everyone can view; only Organisers can create, update and delete (their own events).</summary>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class EventsController : ControllerBase
     {
-        private readonly RaceDayApiService _api;
+        private static readonly string[] AllowedTypes = { "Run", "Walk", "Cycle" };
+        private readonly ApplicationDbContext _context;
 
-        public EventsController(RaceDayApiService api)
+        public EventsController(ApplicationDbContext context)
         {
-            _api = api;
+            _context = context;
         }
 
-        // GET: /Events  (public)
-        public async Task<IActionResult> Index(string? type)
-        {
-            var result = await _api.GetEventsAsync();
-            if (!result.Success) ViewBag.ApiError = result.Error;
-
-            var events = (result.Data ?? new()).OrderBy(e => e.EventDate).ToList();
-            if (!string.IsNullOrWhiteSpace(type))
-                events = events.Where(e => e.EventType.Equals(type, StringComparison.OrdinalIgnoreCase)).ToList();
-
-            ViewBag.Type = type;
-            return View(events);
-        }
-
-        // GET: /Events/Details/5  (public)
-        public async Task<IActionResult> Details(int id)
-        {
-            var result = await _api.GetEventAsync(id);
-            if (!result.Success || result.Data == null)
-            {
-                TempData["Error"] = result.Error ?? "Event not found.";
-                return RedirectToAction(nameof(Index));
-            }
-            return View(result.Data);
-        }
-
-        // ----- Organiser only -----
-
-        [RoleRequired("Organiser")]
+        /// <summary>List all events with their categories (both roles).</summary>
+        /// <response code="200">List of events.</response>
         [HttpGet]
-        public IActionResult Create() => View(new Event());
-
-        [RoleRequired("Organiser")]
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Event model, IFormFile? bannerFile)
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetEvents()
         {
-            if (!ModelState.IsValid) return View(model);
+            var events = await _context.Events
+                .OrderBy(e => e.EventDate)
+                .Select(e => new
+                {
+                    e.EventId,
+                    e.Title,
+                    e.Description,
+                    e.EventType,
+                    e.Location,
+                    e.EventDate,
+                    e.BannerUrl,
+                    Categories = e.Categories.Select(c => new { c.CategoryId, c.EventId, c.Name, c.DistanceKm, c.EntryFee, c.MaxCapacity })
+                })
+                .ToListAsync();
 
-            var result = await _api.CreateEventAsync(model);
-            if (!result.Success || result.Data == null)
-            {
-                ModelState.AddModelError(string.Empty, result.Error ?? "Failed to create event.");
-                return View(model);
-            }
-
-            if (bannerFile != null && bannerFile.Length > 0)
-            {
-                var upload = await _api.UploadBannerAsync(result.Data.EventId, bannerFile);
-                if (!upload.Success) TempData["Error"] = "Event created, but the banner upload failed: " + upload.Error;
-            }
-
-            TempData["Success"] = "Event created. Now add race categories.";
-            return RedirectToAction(nameof(Categories), new { id = result.Data.EventId });
+            return Ok(events);
         }
 
-        [RoleRequired("Organiser")]
-        [HttpGet]
-        public async Task<IActionResult> Edit(int id)
+        /// <summary>List the logged-in Organiser's own events, with enrolment counts.</summary>
+        /// <response code="200">The organiser's events.</response>
+        /// <response code="403">Organiser access required.</response>
+        [HttpGet("mine")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetMyEvents()
         {
-            var result = await _api.GetEventAsync(id);
-            if (!result.Success || result.Data == null)
-            {
-                TempData["Error"] = result.Error ?? "Event not found.";
-                return RedirectToAction("Dashboard", "Organiser");
-            }
-            return View(result.Data);
+            if (!HttpContext.IsOrganiser())
+                return StatusCode(403, new { message = "Forbidden: Organiser access required." });
+
+            var userId = HttpContext.GetUserId()!.Value;
+            var events = await _context.Events
+                .Where(e => e.OrganiserUserId == userId)
+                .OrderBy(e => e.EventDate)
+                .Select(e => new
+                {
+                    e.EventId,
+                    e.Title,
+                    e.Description,
+                    e.EventType,
+                    e.Location,
+                    e.EventDate,
+                    e.BannerUrl,
+                    CategoryCount = e.Categories.Count(),
+                    EnrolmentCount = e.Categories.SelectMany(c => c.Enrolments).Count()
+                })
+                .ToListAsync();
+
+            return Ok(events);
         }
 
-        [RoleRequired("Organiser")]
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(Event model, IFormFile? bannerFile)
+        /// <summary>Get one event by id (both roles).</summary>
+        /// <response code="200">The event with its categories.</response>
+        /// <response code="404">Event not found.</response>
+        [HttpGet("{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetEvent(int id)
         {
-            if (!ModelState.IsValid) return View(model);
+            var ev = await _context.Events
+                .Where(e => e.EventId == id)
+                .Select(e => new
+                {
+                    e.EventId,
+                    e.Title,
+                    e.Description,
+                    e.EventType,
+                    e.Location,
+                    e.EventDate,
+                    e.BannerUrl,
+                    Categories = e.Categories.Select(c => new { c.CategoryId, c.EventId, c.Name, c.DistanceKm, c.EntryFee, c.MaxCapacity })
+                })
+                .FirstOrDefaultAsync();
 
-            var result = await _api.UpdateEventAsync(model);
-            if (!result.Success)
-            {
-                ModelState.AddModelError(string.Empty, result.Error ?? "Failed to update the event.");
-                return View(model);
-            }
-
-            if (bannerFile != null && bannerFile.Length > 0)
-            {
-                var upload = await _api.UploadBannerAsync(model.EventId, bannerFile);
-                if (!upload.Success) TempData["Error"] = "Event saved, but the banner upload failed: " + upload.Error;
-            }
-
-            TempData["Success"] = "Event updated.";
-            return RedirectToAction("Dashboard", "Organiser");
+            if (ev == null) return NotFound(new { message = "Event not found." });
+            return Ok(ev);
         }
 
-        [RoleRequired("Organiser")]
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> Delete(int id)
+        /// <summary>Create an event (Organiser only).</summary>
+        /// <remarks>Needs title, description, date, location and eventType (Run, Walk or Cycle).</remarks>
+        /// <response code="201">Event created.</response>
+        /// <response code="400">Invalid event type or data.</response>
+        /// <response code="403">Organiser access required.</response>
+        [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> CreateEvent([FromBody] CreateEventDto dto)
         {
-            var result = await _api.DeleteEventAsync(id);
-            if (result.Success) TempData["Success"] = "Event deleted.";
-            else TempData["Error"] = result.Error;
-            return RedirectToAction("Dashboard", "Organiser");
-        }
+            if (!HttpContext.IsOrganiser())
+                return StatusCode(403, new { message = "Forbidden: Organiser access required." });
 
-        // GET: /Events/Categories/5  – manage the categories of an event
-        [RoleRequired("Organiser")]
-        [HttpGet]
-        public async Task<IActionResult> Categories(int id)
-        {
-            var result = await _api.GetEventAsync(id);
-            if (!result.Success || result.Data == null)
+            var type = AllowedTypes.FirstOrDefault(t => t.Equals(dto.EventType, StringComparison.OrdinalIgnoreCase));
+            if (type == null)
+                return BadRequest(new { message = "Event type must be Run, Walk or Cycle." });
+
+            var newEvent = new Event
             {
-                TempData["Error"] = result.Error ?? "Event not found.";
-                return RedirectToAction("Dashboard", "Organiser");
-            }
-            return View(result.Data);
+                OrganiserUserId = HttpContext.GetUserId()!.Value,
+                Title = dto.Title,
+                Description = dto.Description ?? string.Empty,
+                EventType = type,
+                Location = dto.Location,
+                EventDate = dto.EventDate
+            };
+
+            _context.Events.Add(newEvent);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetEvent), new { id = newEvent.EventId },
+                new { newEvent.EventId, newEvent.Title, newEvent.Description, newEvent.EventType, newEvent.Location, newEvent.EventDate });
         }
 
-        [RoleRequired("Organiser")]
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> AddCategory(Category model)
+        /// <summary>Update an event (Organiser only, own events).</summary>
+        /// <response code="200">Event updated.</response>
+        /// <response code="400">Invalid event type.</response>
+        /// <response code="403">Organiser access required, or the event belongs to someone else.</response>
+        /// <response code="404">Event not found.</response>
+        [HttpPut("{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateEvent(int id, [FromBody] CreateEventDto dto)
         {
-            if (!ModelState.IsValid)
-            {
-                TempData["Error"] = "Please give the category a name and valid numbers.";
-                return RedirectToAction(nameof(Categories), new { id = model.EventId });
-            }
+            if (!HttpContext.IsOrganiser())
+                return StatusCode(403, new { message = "Forbidden: Organiser access required." });
 
-            var result = await _api.CreateCategoryAsync(model);
-            if (result.Success) TempData["Success"] = "Category added.";
-            else TempData["Error"] = result.Error;
-            return RedirectToAction(nameof(Categories), new { id = model.EventId });
+            var ev = await _context.Events.FindAsync(id);
+            if (ev == null) return NotFound(new { message = "Event not found." });
+
+            if (ev.OrganiserUserId != HttpContext.GetUserId())
+                return StatusCode(403, new { message = "Forbidden: you can only change your own events." });
+
+            var type = AllowedTypes.FirstOrDefault(t => t.Equals(dto.EventType, StringComparison.OrdinalIgnoreCase));
+            if (type == null)
+                return BadRequest(new { message = "Event type must be Run, Walk or Cycle." });
+
+            ev.Title = dto.Title;
+            ev.Description = dto.Description ?? string.Empty;
+            ev.EventType = type;
+            ev.Location = dto.Location;
+            ev.EventDate = dto.EventDate;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { ev.EventId, ev.Title, ev.Description, ev.EventType, ev.Location, ev.EventDate });
         }
 
-        [RoleRequired("Organiser")]
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteCategory(int categoryId, int eventId)
+        /// <summary>Delete an event (Organiser only, own events).</summary>
+        /// <response code="204">Event deleted.</response>
+        /// <response code="400">The event already has enrolments.</response>
+        /// <response code="403">Organiser access required, or the event belongs to someone else.</response>
+        /// <response code="404">Event not found.</response>
+        [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteEvent(int id)
         {
-            var result = await _api.DeleteCategoryAsync(categoryId);
-            if (result.Success) TempData["Success"] = "Category deleted.";
-            else TempData["Error"] = result.Error;
-            return RedirectToAction(nameof(Categories), new { id = eventId });
+            if (!HttpContext.IsOrganiser())
+                return StatusCode(403, new { message = "Forbidden: Organiser access required." });
+
+            var ev = await _context.Events.Include(e => e.Categories).FirstOrDefaultAsync(e => e.EventId == id);
+            if (ev == null) return NotFound(new { message = "Event not found." });
+
+            if (ev.OrganiserUserId != HttpContext.GetUserId())
+                return StatusCode(403, new { message = "Forbidden: you can only delete your own events." });
+
+            var categoryIds = ev.Categories.Select(c => c.CategoryId).ToList();
+            if (await _context.Enrolments.AnyAsync(en => categoryIds.Contains(en.CategoryId)))
+                return BadRequest(new { message = "This event already has enrolments and cannot be deleted." });
+
+            _context.Events.Remove(ev);
+            await _context.SaveChangesAsync();
+            return NoContent();
+        }
+
+        /// <summary>Upload an event banner image to Azure Blob Storage (Organiser only, own events).</summary>
+        /// <response code="200">Returns the blob URL that was saved on the event.</response>
+        /// <response code="400">No file uploaded.</response>
+        /// <response code="403">Organiser access required, or the event belongs to someone else.</response>
+        /// <response code="404">Event not found.</response>
+        [HttpPost("{id}/upload-banner")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UploadBanner(int id, IFormFile file, [FromServices] BlobStorageService blobService)
+        {
+            if (!HttpContext.IsOrganiser())
+                return StatusCode(403, new { message = "Organiser access required." });
+
+            var ev = await _context.Events.FindAsync(id);
+            if (ev == null) return NotFound(new { message = "Event not found." });
+
+            if (ev.OrganiserUserId != HttpContext.GetUserId())
+                return StatusCode(403, new { message = "Forbidden: you can only change your own events." });
+
+            if (file == null || file.Length == 0) return BadRequest(new { message = "No file uploaded." });
+
+            string bannerUrl = await blobService.UploadFileAsync(file);
+            ev.BannerUrl = bannerUrl;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { bannerUrl });
         }
     }
 }
