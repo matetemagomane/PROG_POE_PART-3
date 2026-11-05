@@ -1,55 +1,81 @@
-using RaceDay.Web.Services;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using RaceDay.API.Data;
+using RaceDay.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
-builder.Services.AddHttpContextAccessor();
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    // Show the XML summaries / response codes written on every endpoint in Swagger UI
+    var xmlFile = $"{typeof(Program).Assembly.GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath)) options.IncludeXmlComments(xmlPath);
+});
 
-// Web session: stores the logged-in user's id, name, role and the API session cookie
+builder.Services.AddScoped<BlobStorageService>();
+
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddDistributedMemoryCache();
+
+// Session management keeps the user's id and role between requests
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(60);
+    options.Cookie.Name = "RaceDay.API.Session";
+    options.IdleTimeout = TimeSpan.FromHours(2);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
 
-// One typed HttpClient for all calls to RaceDay.API
-builder.Services.AddHttpClient<RaceDayApiService>(client =>
-{
-    var baseUrl = builder.Configuration["ApiSettings:BaseUrl"]
-                  ?? throw new InvalidOperationException("ApiSettings:BaseUrl is not configured.");
-    client.BaseAddress = new Uri(baseUrl);
-    client.Timeout = TimeSpan.FromSeconds(30);
-})
-.ConfigurePrimaryHttpMessageHandler(() =>
-{
-    // UseCookies = false because we forward the API session cookie ourselves, per user
-    var handler = new HttpClientHandler { UseCookies = false };
-    if (builder.Environment.IsDevelopment())
-    {
-        // Local development only: accept the ASP.NET dev certificate
-        handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-    }
-    return handler;
-});
-
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+// Create / update the database automatically so the API works on first run
+using (var scope = app.Services.CreateScope())
 {
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    try
+    {
+        db.Database.Migrate();
+    }
+    catch (SqlException ex) when (ex.Number == 1801)
+    {
+        // Another API instance may have created the database after this instance checked.
+        app.Logger.LogWarning(ex, "Database creation raced with another API instance; retrying migrations.");
+        try
+        {
+            db.Database.Migrate();
+        }
+        catch (Exception retryEx)
+        {
+            app.Logger.LogError(retryEx, "Database migration retry failed. Check the DefaultConnection string.");
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Database migration failed. Check the DefaultConnection string.");
+    }
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
+{
     app.UseHttpsRedirection();
 }
 
-app.UseStaticFiles();
-app.UseRouting();
 app.UseSession();
 app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapControllers();
 
 app.Run();
+
+// Needed so the test project can reference the entry point type
+public partial class Program { }
