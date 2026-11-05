@@ -1,0 +1,379 @@
+:root {
+  --text: #172b3a;
+  --muted: #526b73;
+  --border: #cbd9d8;
+  --background: #eaf1f0;
+  --surface: #ffffff;
+  --accent: #126b55;
+  --accent-dark: #084c3c;
+  --accent-soft: #e1f1ec;
+  --success-soft: #dff2e8;
+  --warning-soft: #fff0cc;
+}
+
+html {
+  font-size: 16px;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+}
+
+main {
+  flex: 1;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:hover {
+  color: var(--accent-dark);
+}
+
+/* Navigation */
+.rd-navbar {
+  background: #123247;
+  border-bottom-color: #0b2637;
+}
+
+.rd-brand {
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: #ffffff !important;
+}
+
+.rd-brand span {
+  color: #53c49a;
+}
+
+.rd-navbar .nav-link {
+  padding: 0.65rem 0.8rem;
+  color: var(--text);
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.rd-navbar .nav-link:hover,
+.rd-navbar .nav-link:focus {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rd-role-pill {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.2rem 0.65rem;
+  border: 1px solid #cfd9ef;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.rd-role-pill.organiser {
+  background: #fff3e8;
+  border-color: #f1d2b2;
+  color: #9a4f08;
+}
+
+/* Buttons and forms */
+.btn {
+  border-radius: 0.5rem;
+  font-weight: 550;
+}
+
+.btn-primary,
+.rd-btn-accent {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.rd-btn-accent:hover,
+.rd-btn-accent:focus {
+  border-color: var(--accent-dark);
+  background: var(--accent-dark);
+  color: #fff;
+}
+
+.btn-outline-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-outline-primary:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.form-control,
+.form-select {
+  min-height: 2.65rem;
+  border-color: #cfd5dc;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.form-control:focus,
+.form-select:focus,
+.btn:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.2rem rgba(36, 86, 196, 0.16);
+}
+
+.form-label {
+  margin-bottom: 0.35rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Page headings */
+.rd-page-title {
+  margin: 2rem 0 0.5rem;
+  font-size: 1.9rem;
+}
+
+.rd-section-title {
+  margin: 2rem 0 1rem;
+  font-size: 1.3rem;
+}
+
+.rd-main {
+  width: 100%;
+  max-width: 1180px;
+}
+
+/* Hero */
+.rd-hero {
+  margin-top: 2rem;
+  padding: 3.5rem 2.5rem;
+  border: 1px solid #dbe5f6;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f6ff 100%);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+.rd-hero h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 750;
+}
+
+.rd-hero h1 span {
+  color: var(--accent);
+}
+
+.rd-hero p {
+  max-width: 40rem;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+/* Cards, tables, and forms */
+.rd-card,
+.rd-table,
+.rd-form-card,
+.rd-stat {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.05);
+}
+
+.rd-card {
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rd-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.09);
+}
+
+.rd-form-card {
+  padding: 2rem;
+}
+
+.rd-banner {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: cover;
+}
+
+.rd-banner-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 170px;
+  background: #edf1f7;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.rd-table {
+  overflow: hidden;
+}
+
+.rd-table thead {
+  background: #f8fafc;
+  color: var(--text);
+}
+
+.rd-table th {
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rd-table td {
+  vertical-align: middle;
+}
+
+.rd-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.rd-table tbody tr:hover {
+  background: #f8fbff;
+}
+
+.rd-stat {
+  padding: 1.25rem 1.5rem;
+}
+
+.rd-stat .num {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.rd-stat .lbl {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Badges */
+.rd-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.rd-badge.upcoming,
+.rd-badge.confirmed {
+  border-color: #bde3ca;
+  background: var(--success-soft);
+  color: #176b3a;
+}
+
+.rd-badge.today,
+.rd-badge.pending {
+  border-color: #f0d99f;
+  background: var(--warning-soft);
+  color: #8a6100;
+}
+
+.rd-badge.finished {
+  border-color: #c5d3f3;
+  background: #eaf0ff;
+  color: var(--accent-dark);
+}
+
+.rd-badge.past {
+  background: #f2f4f7;
+  color: var(--muted);
+}
+
+.rd-podium {
+  font-weight: 650;
+}
+
+.rd-avatar,
+.rd-avatar-empty {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+}
+
+.rd-avatar {
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+.rd-avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: #edf1f7;
+  color: var(--muted);
+  font-size: 1.8rem;
+}
+
+/* Alerts */
+.alert {
+  border-radius: 0.65rem;
+}
+
+/* Footer */
+.rd-footer {
+  margin-top: 3rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.rd-footer a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.rd-footer a:hover {
+  color: var(--accent);
+}
+
+@media (max-width: 576px) {
+  .rd-hero {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .rd-form-card {
+    padding: 1.25rem;
+  }
+}
