@@ -1,22 +1,30 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace RaceDay.Web.Models
+namespace RaceDay.API.Models
 {
     public class Category
     {
+        [Key]
         public int CategoryId { get; set; }
-        public int EventId { get; set; }
 
         [Required]
-        public string Name { get; set; } = string.Empty;
+        public int EventId { get; set; }
 
-        [Range(0, 1000), Display(Name = "Distance (km)")]
+        [Required, MaxLength(100)]
+        public string Name { get; set; } = string.Empty; // e.g. "10km Dash", "21km Half Marathon"
+
+        [Column(TypeName = "decimal(18,2)")]
         public decimal DistanceKm { get; set; }
 
-        [Range(0, 100000), Display(Name = "Entry Fee (R)")]
+        [Column(TypeName = "decimal(18,2)")]
         public decimal EntryFee { get; set; }
 
-        [Range(0, 100000), Display(Name = "Max Capacity")]
-        public int MaxCapacity { get; set; } = 100;
+        public int MaxCapacity { get; set; }
+
+        // Navigation Properties
+        [ForeignKey("EventId")]
+        public Event Event { get; set; } = null!;
+        public ICollection<Enrolment> Enrolments { get; set; } = new List<Enrolment>();
     }
 }

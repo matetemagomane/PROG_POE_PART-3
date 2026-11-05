@@ -1,31 +1,36 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
-namespace RaceDay.Web.Models
+namespace RaceDay.API.Models
 {
     public class Event
     {
+        [Key]
         public int EventId { get; set; }
 
         [Required]
+        public int OrganiserUserId { get; set; }
+
+        [Required, MaxLength(150)]
         public string Title { get; set; } = string.Empty;
 
-        public string? Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
-        [Required, Display(Name = "Event Date")]
-        public DateTime EventDate { get; set; } = DateTime.Today.AddDays(30).AddHours(7);
+        [Required, MaxLength(50)]
+        public string EventType { get; set; } = string.Empty; // Run, Walk, Cycle
 
-        [Required]
+        [Required, MaxLength(150)]
         public string Location { get; set; } = string.Empty;
 
-        [Required, Display(Name = "Event Type")]
-        public string EventType { get; set; } = "Run"; // Run, Walk, Cycle
+        [Required]
+        public DateTime EventDate { get; set; }
+
+        // Navigation Properties
+        [ForeignKey("OrganiserUserId")]
+        public EventOrganiser Organiser { get; set; } = null!;
+        public ICollection<Category> Categories { get; set; } = new List<Category>();
 
         public string? BannerUrl { get; set; }
-
-        // Only filled by the organiser's "my events" list
-        public int CategoryCount { get; set; }
-        public int EnrolmentCount { get; set; }
-
-        public List<Category> Categories { get; set; } = new();
     }
 }
+
