@@ -65,5 +65,5 @@ dotnet test RaceDayAPI.Tests/RaceDayAPI.Tests.csproj
 
 ## Links
 
-* YouTube demo: https://youtu.be/_0MrGwneH58
+* YouTube demo: https://youtu.be/p5l5VDUtJvU
 * GitHub: https://github.com/matetemagomane/PROG_POE_PART-3.git
